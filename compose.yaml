@@ -1,0 +1,49 @@
+name: shvirtd-example
+
+include:
+  - proxy.yaml
+
+services:
+  db:
+    image: mysql:8
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    image: shvirtd-web:compose
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+
+volumes:
+  mysql_data:
